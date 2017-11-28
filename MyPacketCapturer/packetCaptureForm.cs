@@ -566,7 +566,13 @@ namespace MyPacketCapturer
             txtCapturedData.AppendText(strPackets);
             strPackets = "";
             txtNumPackets.Text = Convert.ToString(numPackets);
-
+            icmpCntTxtBox.Text = Convert.ToString(icmpPacketsReceived);
+            icmpGoodputTxtBox.Text = Convert.ToString((icmpThroughput - icmpOverhead));
+            tcpCountTxtBox.Text = Convert.ToString(tcpPacketsReceived);
+            tcpGoodputTxtBox.Text = Convert.ToString(tcpThroughput - tcpOverhead);
+            arpCountTxtBox.Text = Convert.ToString(arpPacketsReceived);
+            arpGoodputTxtBox.Text = Convert.ToString(arpThroughput - arpOverhead);
+            udpCountTxtBox.Text = Convert.ToString(udpPacketsReceived);
         }
 
         private void cmbDevices_SelectedIndexChanged(object sender, EventArgs e)

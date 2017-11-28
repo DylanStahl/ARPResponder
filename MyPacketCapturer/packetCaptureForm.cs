@@ -18,6 +18,25 @@ namespace MyPacketCapturer
         private ComboBox cmbDevices;
         private TextBox txtCapturedData;
         static int numPackets = 0;
+        private static int IP_HEADER_LENGTH = 0;
+        private static int tcpPacketsReceived = 0;
+        private static int tcpThroughput = 0;
+        private static int tcpOverhead = 0;
+        private static int udpPacketsReceived = 0;
+        private static int udpThroughput = 0;
+        private static int udpOverhead = 0;
+        private static int icmpPacketsReceived = 0;
+        private static int icmpThroughput = 0;
+        private static int icmpOverhead = 0;
+        private static int arpPacketsReceived = 0;
+        private static int arpThroughput = 0;
+        private static int arpOverhead = 0;
+        private static int otherPackets = 0;
+        private static int otherThroughput = 0;
+        private static int otherOverhead = 0;
+        private static int gratuitousArps = 0;
+        private static DateTime timestampOfLastARPRequest;
+
         sendPacketForm fSend;
 
         //Variables use to house network capture devices available, the selected device, and the packet string.
@@ -83,6 +102,8 @@ namespace MyPacketCapturer
             //Array for data storage.
             byte[] data = packet.Packet.Data;
 
+            IP_HEADER_LENGTH = data[14] & 15;
+
             //Keep track of the number of bytes displayed per line
             int byteCounter = 0;
 
@@ -107,10 +128,46 @@ namespace MyPacketCapturer
                             if (data[12] == 8) {
                                 if (data[13] == 0) {
                                     strPackets += "(IP)";
+                                    switch (data[23])
+                                    {
+                                        case 1:
+                                            icmpPacketsReceived += 1;
+                                            icmpThroughput += data[16] * 256 + data[17];
+                                            icmpOverhead += IP_HEADER_LENGTH;
+                                            break;
+                                        case 6:
+                                            tcpPacketsReceived += 1;
+                                            tcpThroughput += data[16] * 256 + data[17];
+                                            tcpOverhead += IP_HEADER_LENGTH;
+                                            break;
+                                        case 17:
+                                            udpPacketsReceived += 1;
+                                            udpThroughput += data[16] * 256 + data[17];
+                                            udpOverhead += IP_HEADER_LENGTH;
+                                            break;
+                                        default:
+                                            otherPackets += 1;
+                                            otherThroughput += data[16] * 256 + data[17];
+                                            otherOverhead += IP_HEADER_LENGTH;
+                                            break;
+                }
                                 }
                                 if (data[13] == 6)
                                 {
                                     strPackets += "(ARP)";
+                                    arpPacketsReceived += 1;
+                                    arpThroughput += 28;
+                                    arpOverhead += 8;
+                                    if(data[21] == 1){
+                                        timestampOfLastARPRequest = DateTime.Now.Date;
+                                    }
+                                    if(data[21] == 2){
+                                        if (timestampOfLastARPRequest > DateTime.Now.AddSeconds(2)){
+                                            //We've encountered a gratuitous ARP.
+                                            //Call Cthulhu.
+                                            gratuitousArps += 1;
+                                        }
+                                    }
                                 }
                             }
                             strPackets += Environment.NewLine;
@@ -119,6 +176,9 @@ namespace MyPacketCapturer
                             break;
                     }
                 }
+
+
+
             }
 
             //Reset Byte Count, and inform the user of non-parsed packet data.

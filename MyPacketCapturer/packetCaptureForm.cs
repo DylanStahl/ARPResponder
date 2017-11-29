@@ -12,11 +12,18 @@ using SharpPcap;
 using System.IO;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace MyPacketCapturer
 {
     public partial class packetCaptureForm : Form
     {
+        [DllImport("winmm.dll")]
+        public static extern int waveOutGetVolume(IntPtr hwo, out uint dwVolume);
+
+        [DllImport("winmm.dll")]
+        public static extern int waveOutSetVolume(IntPtr hwo, uint dwVolume);
+
         private Button btnStartStop;
         static int numPackets = 0;
         private static int IP_HEADER_LENGTH = 0;
@@ -38,6 +45,7 @@ namespace MyPacketCapturer
         private static int gratuitousArps = 0;
         private static int totalGoodput = 0;
         private static DateTime timestampOfLastARPRequest;
+        private static Stopwatch arptimer = new Stopwatch();
 
         sendPacketForm fSend;
 
@@ -51,9 +59,8 @@ namespace MyPacketCapturer
         private MenuStrip menuStrip1;
         private ToolStripMenuItem fileToolStripMenuItem;
         private ToolStripMenuItem exitToolStripMenuItem;
-        public static string strPackets = "";
         private TextBox txtNumPackets;
-        private Label label1;
+        private Label totalPacketsLabel;
         private ToolStripMenuItem packetsToolStripMenuItem;
         private ToolStripMenuItem sendWindowToolStripMenuItem;
         private TextBox icmpCntTxtBox;
@@ -64,23 +71,31 @@ namespace MyPacketCapturer
         private TextBox arpCountTxtBox;
         private TextBox arpGoodputTxtBox;
         private TextBox udpCountTxtBox;
-        private Label label3;
-        private Label label4;
-        private Label label5;
-        private Label label6;
-        private Label label7;
-        private Label label8;
+        private Label icmpGoodputLabel;
+        private Label tcpCountLabel;
+        private Label tcpGoodputLabel;
+        private Label arpCountLabel;
+        private Label arpGoodputLabel;
+        private Label udpCountLabel;
         private TextBox udpGoodputTxtBox;
         private TextBox otherPacketCountTxtBox;
         private TextBox totalGoodputTxtBox;
-        private Label label2;
-        private Label label9;
-        private Label label10;
+        private Label udpGoodputLabel;
+        private Label totalGoodputLabel;
+        private Label otherCountLabel;
         private TextBox otherGoodputTxtBox;
-        private Label label11;
-        private Label label12;
+        private Label otherGoodputLabel;
+        private Label arpRespTitle;
         private Button callForHelpBtn;
-        private bool captureHasBeenSaved = true;
+        private Label icmpThroughputLabel;
+        private TextBox icmpThroughputTxtBox;
+        private TextBox tcpThroughputTxtBox;
+        private Label tcpThroughputLabel;
+        private TextBox arpThroughputTxtBox;
+        private TextBox udpThroughputTxtBox;
+        private Label arpThroughputLabel;
+        private TextBox gratArpCountTxtBox;
+        private Label udpThroughputLabel;
 
         public packetCaptureForm()
         {
@@ -104,115 +119,84 @@ namespace MyPacketCapturer
             int readTimeoutMilliseconds = 1000;
             device.Open(DeviceMode.Promiscuous, readTimeoutMilliseconds);
 
+            waveOutSetVolume(IntPtr.Zero, (uint)0);
+            
             
         }
+        
 
         private static void device_OnPacketArrival(object sender, CaptureEventArgs packet) {
 
             //Increment packet count
-            numPackets++;
-
-            //Put the packet number in the capture window
-            strPackets += "Packet Number: " + Convert.ToString(numPackets) + Environment.NewLine;
+            numPackets += 1;
 
             //Array for data storage.
             byte[] data = packet.Packet.Data;
 
             IP_HEADER_LENGTH = data[14] & 15;
 
-            //Keep track of the number of bytes displayed per line
-            int byteCounter = 0;
 
-            strPackets += "Destination MAC Address: ";
-            //Parse each packet.
-            foreach (byte datum in data)
+            if (data[12] == 8)
             {
-                //Add byte to our string (in hex)
-                if (byteCounter <= 13)
+                if (data[13] == 0)
                 {
-                    strPackets += datum.ToString("X2") + " ";
-                    byteCounter++;
-
-                    switch (byteCounter) {
+                    switch (data[23])
+                    {
+                        case 1:
+                            icmpPacketsReceived += 1;
+                            totalGoodput += data[16] * 256 + data[17] - (IP_HEADER_LENGTH * 4);
+                            icmpThroughput += data[16] * 256 + data[17];
+                            icmpOverhead += IP_HEADER_LENGTH * 4;
+                            break;
                         case 6:
-                            strPackets += Environment.NewLine + "Source MAC Address: ";
+                            tcpPacketsReceived += 1;
+                            totalGoodput += data[16] * 256 + data[17] - (IP_HEADER_LENGTH * 4);
+                            tcpThroughput += data[16] * 256 + data[17];
+                            tcpOverhead += IP_HEADER_LENGTH * 4;
                             break;
-                        case 12:
-                            strPackets += Environment.NewLine + "EtherType: ";
-                            break;
-                        case 14:
-                            if (data[12] == 8) {
-                                if (data[13] == 0) {
-                                    strPackets += "(IP)";
-                                    switch (data[23])
-                                    {
-                                        case 1:
-                                            icmpPacketsReceived += 1;
-                                            icmpThroughput += data[16] * 256 + data[17];
-                                            icmpOverhead += IP_HEADER_LENGTH;
-                                            break;
-                                        case 6:
-                                            tcpPacketsReceived += 1;
-                                            tcpThroughput += data[16] * 256 + data[17];
-                                            tcpOverhead += IP_HEADER_LENGTH;
-                                            break;
-                                        case 17:
-                                            udpPacketsReceived += 1;
-                                            udpThroughput += data[16] * 256 + data[17];
-                                            udpOverhead += IP_HEADER_LENGTH;
-                                            break;
-                                        default:
-                                            otherPackets += 1;
-                                            otherThroughput += data[16] * 256 + data[17];
-                                            otherOverhead += IP_HEADER_LENGTH;
-                                            break;
-                }
-                                }
-                                if (data[13] == 6)
-                                {
-                                    strPackets += "(ARP)";
-                                    arpPacketsReceived += 1;
-                                    arpThroughput += 28;
-                                    arpOverhead += 8;
-                                    if(data[21] == 1){
-                                        timestampOfLastARPRequest = DateTime.Now.Date;
-                                    }
-                                    if(data[21] == 2){
-                                        if (timestampOfLastARPRequest > DateTime.Now.AddSeconds(2)){
-                                            //We've encountered a gratuitous ARP.
-                                            //Call Cthulhu.
-                                            gratuitousArps += 1;
-                                        }
-                                    }
-                                }
-                            }
-                            strPackets += Environment.NewLine;
+                        case 17:
+                            udpPacketsReceived += 1;
+                            totalGoodput += data[16] * 256 + data[17] - (IP_HEADER_LENGTH * 4);
+                            udpThroughput += data[16] * 256 + data[17];
+                            udpOverhead += IP_HEADER_LENGTH * 4;
                             break;
                         default:
+                            otherPackets += 1;
+                            totalGoodput += data[16] * 256 + data[17] - (IP_HEADER_LENGTH * 4);
+                            otherThroughput += data[16] * 256 + data[17];
+                            otherOverhead += IP_HEADER_LENGTH * 4;
                             break;
                     }
                 }
-
-
-
-            }
-
-            //Reset Byte Count, and inform the user of non-parsed packet data.
-            byteCounter = 0;
-            strPackets += Environment.NewLine + Environment.NewLine + "Raw Data" + Environment.NewLine;
-
-            //Process each byte.
-            foreach (byte datum in data) {
-                //Add byte to our string (in hex)
-                strPackets += datum.ToString("X2") + " ";
-                byteCounter++;
-                if (byteCounter == 16) {
-                    byteCounter = 0;
-                    strPackets += Environment.NewLine; //... \n?
+                if (data[13] == 6)
+                {
+                    arpPacketsReceived += 1;
+                    totalGoodput += 20;
+                    arpThroughput += 28;
+                    arpOverhead += 8;
+                    if (data[21] == 1)
+                    {
+                        if (arptimer.IsRunning)
+                        {
+                            arptimer.Restart();
+                        }
+                        else
+                        {
+                            arptimer.Start();
+                        }
+                    }
+                    if (data[21] == 2)
+                    {
+                        if (!arptimer.IsRunning)
+                        {
+                            gratuitousArps += 1;
+                        }
+                        else if (arptimer.ElapsedMilliseconds > 2000) {
+                            gratuitousArps += 1;
+                        }
+                    }
                 }
             }
-            strPackets += Environment.NewLine;
-            strPackets += Environment.NewLine;
         }
 
         private void btnStartStop_Click(object sender, EventArgs e)
@@ -223,7 +207,6 @@ namespace MyPacketCapturer
                 {
                     device.StartCapture();
                     timer1.Enabled = true;
-                    captureHasBeenSaved = false;
                     callForHelpBtn.Enabled = true;
                     btnStartStop.Text = "Stop";
                 } else {
@@ -250,7 +233,7 @@ namespace MyPacketCapturer
             this.packetsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.sendWindowToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.txtNumPackets = new System.Windows.Forms.TextBox();
-            this.label1 = new System.Windows.Forms.Label();
+            this.totalPacketsLabel = new System.Windows.Forms.Label();
             this.icmpCntTxtBox = new System.Windows.Forms.TextBox();
             this.icmpPktCntLabel = new System.Windows.Forms.Label();
             this.icmpGoodputTxtBox = new System.Windows.Forms.TextBox();
@@ -259,22 +242,31 @@ namespace MyPacketCapturer
             this.arpCountTxtBox = new System.Windows.Forms.TextBox();
             this.arpGoodputTxtBox = new System.Windows.Forms.TextBox();
             this.udpCountTxtBox = new System.Windows.Forms.TextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
-            this.label5 = new System.Windows.Forms.Label();
-            this.label6 = new System.Windows.Forms.Label();
-            this.label7 = new System.Windows.Forms.Label();
-            this.label8 = new System.Windows.Forms.Label();
+            this.icmpGoodputLabel = new System.Windows.Forms.Label();
+            this.tcpCountLabel = new System.Windows.Forms.Label();
+            this.tcpGoodputLabel = new System.Windows.Forms.Label();
+            this.arpCountLabel = new System.Windows.Forms.Label();
+            this.arpGoodputLabel = new System.Windows.Forms.Label();
+            this.udpCountLabel = new System.Windows.Forms.Label();
             this.udpGoodputTxtBox = new System.Windows.Forms.TextBox();
             this.otherPacketCountTxtBox = new System.Windows.Forms.TextBox();
             this.totalGoodputTxtBox = new System.Windows.Forms.TextBox();
-            this.label2 = new System.Windows.Forms.Label();
-            this.label9 = new System.Windows.Forms.Label();
-            this.label10 = new System.Windows.Forms.Label();
+            this.udpGoodputLabel = new System.Windows.Forms.Label();
+            this.totalGoodputLabel = new System.Windows.Forms.Label();
+            this.otherCountLabel = new System.Windows.Forms.Label();
             this.otherGoodputTxtBox = new System.Windows.Forms.TextBox();
-            this.label11 = new System.Windows.Forms.Label();
-            this.label12 = new System.Windows.Forms.Label();
+            this.otherGoodputLabel = new System.Windows.Forms.Label();
+            this.arpRespTitle = new System.Windows.Forms.Label();
             this.callForHelpBtn = new System.Windows.Forms.Button();
+            this.icmpThroughputLabel = new System.Windows.Forms.Label();
+            this.icmpThroughputTxtBox = new System.Windows.Forms.TextBox();
+            this.tcpThroughputTxtBox = new System.Windows.Forms.TextBox();
+            this.tcpThroughputLabel = new System.Windows.Forms.Label();
+            this.arpThroughputTxtBox = new System.Windows.Forms.TextBox();
+            this.udpThroughputTxtBox = new System.Windows.Forms.TextBox();
+            this.arpThroughputLabel = new System.Windows.Forms.Label();
+            this.udpThroughputLabel = new System.Windows.Forms.Label();
+            this.gratArpCountTxtBox = new System.Windows.Forms.TextBox();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -341,25 +333,27 @@ namespace MyPacketCapturer
             // 
             // txtNumPackets
             // 
-            this.txtNumPackets.Location = new System.Drawing.Point(444, 428);
+            this.txtNumPackets.Enabled = false;
+            this.txtNumPackets.Location = new System.Drawing.Point(444, 459);
             this.txtNumPackets.Name = "txtNumPackets";
             this.txtNumPackets.Size = new System.Drawing.Size(134, 26);
             this.txtNumPackets.TabIndex = 4;
             this.txtNumPackets.Text = "0";
             // 
-            // label1
+            // totalPacketsLabel
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(48, 431);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(186, 20);
-            this.label1.TabIndex = 5;
-            this.label1.Text = "Total Number Of Packets";
-            this.label1.Click += new System.EventHandler(this.label1_Click);
+            this.totalPacketsLabel.AutoSize = true;
+            this.totalPacketsLabel.Location = new System.Drawing.Point(48, 462);
+            this.totalPacketsLabel.Name = "totalPacketsLabel";
+            this.totalPacketsLabel.Size = new System.Drawing.Size(186, 20);
+            this.totalPacketsLabel.TabIndex = 5;
+            this.totalPacketsLabel.Text = "Total Number Of Packets";
+            this.totalPacketsLabel.Click += new System.EventHandler(this.label1_Click);
             // 
             // icmpCntTxtBox
             // 
-            this.icmpCntTxtBox.Location = new System.Drawing.Point(165, 129);
+            this.icmpCntTxtBox.Enabled = false;
+            this.icmpCntTxtBox.Location = new System.Drawing.Point(165, 113);
             this.icmpCntTxtBox.Name = "icmpCntTxtBox";
             this.icmpCntTxtBox.Size = new System.Drawing.Size(100, 26);
             this.icmpCntTxtBox.TabIndex = 7;
@@ -367,7 +361,7 @@ namespace MyPacketCapturer
             // icmpPktCntLabel
             // 
             this.icmpPktCntLabel.AutoSize = true;
-            this.icmpPktCntLabel.Location = new System.Drawing.Point(48, 132);
+            this.icmpPktCntLabel.Location = new System.Drawing.Point(48, 116);
             this.icmpPktCntLabel.Name = "icmpPktCntLabel";
             this.icmpPktCntLabel.Size = new System.Drawing.Size(95, 20);
             this.icmpPktCntLabel.TabIndex = 8;
@@ -375,27 +369,31 @@ namespace MyPacketCapturer
             // 
             // icmpGoodputTxtBox
             // 
-            this.icmpGoodputTxtBox.Location = new System.Drawing.Point(165, 168);
+            this.icmpGoodputTxtBox.Enabled = false;
+            this.icmpGoodputTxtBox.Location = new System.Drawing.Point(165, 144);
             this.icmpGoodputTxtBox.Name = "icmpGoodputTxtBox";
             this.icmpGoodputTxtBox.Size = new System.Drawing.Size(100, 26);
             this.icmpGoodputTxtBox.TabIndex = 9;
             // 
             // tcpCountTxtBox
             // 
-            this.tcpCountTxtBox.Location = new System.Drawing.Point(478, 129);
+            this.tcpCountTxtBox.Enabled = false;
+            this.tcpCountTxtBox.Location = new System.Drawing.Point(478, 113);
             this.tcpCountTxtBox.Name = "tcpCountTxtBox";
             this.tcpCountTxtBox.Size = new System.Drawing.Size(100, 26);
             this.tcpCountTxtBox.TabIndex = 10;
             // 
             // tcpGoodputTxtBox
             // 
-            this.tcpGoodputTxtBox.Location = new System.Drawing.Point(478, 168);
+            this.tcpGoodputTxtBox.Enabled = false;
+            this.tcpGoodputTxtBox.Location = new System.Drawing.Point(478, 144);
             this.tcpGoodputTxtBox.Name = "tcpGoodputTxtBox";
             this.tcpGoodputTxtBox.Size = new System.Drawing.Size(100, 26);
             this.tcpGoodputTxtBox.TabIndex = 11;
             // 
             // arpCountTxtBox
             // 
+            this.arpCountTxtBox.Enabled = false;
             this.arpCountTxtBox.Location = new System.Drawing.Point(165, 247);
             this.arpCountTxtBox.Name = "arpCountTxtBox";
             this.arpCountTxtBox.Size = new System.Drawing.Size(100, 26);
@@ -403,147 +401,153 @@ namespace MyPacketCapturer
             // 
             // arpGoodputTxtBox
             // 
-            this.arpGoodputTxtBox.Location = new System.Drawing.Point(165, 293);
+            this.arpGoodputTxtBox.Enabled = false;
+            this.arpGoodputTxtBox.Location = new System.Drawing.Point(165, 279);
             this.arpGoodputTxtBox.Name = "arpGoodputTxtBox";
             this.arpGoodputTxtBox.Size = new System.Drawing.Size(100, 26);
             this.arpGoodputTxtBox.TabIndex = 13;
             // 
             // udpCountTxtBox
             // 
+            this.udpCountTxtBox.Enabled = false;
             this.udpCountTxtBox.Location = new System.Drawing.Point(478, 250);
             this.udpCountTxtBox.Name = "udpCountTxtBox";
             this.udpCountTxtBox.Size = new System.Drawing.Size(100, 26);
             this.udpCountTxtBox.TabIndex = 14;
             // 
-            // label3
+            // icmpGoodputLabel
             // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(23, 168);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(115, 20);
-            this.label3.TabIndex = 15;
-            this.label3.Text = "ICMP Goodput";
+            this.icmpGoodputLabel.AutoSize = true;
+            this.icmpGoodputLabel.Location = new System.Drawing.Point(28, 147);
+            this.icmpGoodputLabel.Name = "icmpGoodputLabel";
+            this.icmpGoodputLabel.Size = new System.Drawing.Size(115, 20);
+            this.icmpGoodputLabel.TabIndex = 15;
+            this.icmpGoodputLabel.Text = "ICMP Goodput";
             // 
-            // label4
+            // tcpCountLabel
             // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(346, 132);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(86, 20);
-            this.label4.TabIndex = 16;
-            this.label4.Text = "TCP Count";
+            this.tcpCountLabel.AutoSize = true;
+            this.tcpCountLabel.Location = new System.Drawing.Point(361, 116);
+            this.tcpCountLabel.Name = "tcpCountLabel";
+            this.tcpCountLabel.Size = new System.Drawing.Size(86, 20);
+            this.tcpCountLabel.TabIndex = 16;
+            this.tcpCountLabel.Text = "TCP Count";
             // 
-            // label5
+            // tcpGoodputLabel
             // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(326, 168);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(106, 20);
-            this.label5.TabIndex = 17;
-            this.label5.Text = "TCP Goodput";
+            this.tcpGoodputLabel.AutoSize = true;
+            this.tcpGoodputLabel.Location = new System.Drawing.Point(342, 147);
+            this.tcpGoodputLabel.Name = "tcpGoodputLabel";
+            this.tcpGoodputLabel.Size = new System.Drawing.Size(106, 20);
+            this.tcpGoodputLabel.TabIndex = 17;
+            this.tcpGoodputLabel.Text = "TCP Goodput";
             // 
-            // label6
+            // arpCountLabel
             // 
-            this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(48, 247);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(89, 20);
-            this.label6.TabIndex = 18;
-            this.label6.Text = "ARP Count";
+            this.arpCountLabel.AutoSize = true;
+            this.arpCountLabel.Location = new System.Drawing.Point(48, 247);
+            this.arpCountLabel.Name = "arpCountLabel";
+            this.arpCountLabel.Size = new System.Drawing.Size(89, 20);
+            this.arpCountLabel.TabIndex = 18;
+            this.arpCountLabel.Text = "ARP Count";
             // 
-            // label7
+            // arpGoodputLabel
             // 
-            this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(29, 293);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(109, 20);
-            this.label7.TabIndex = 19;
-            this.label7.Text = "ARP Goodput";
+            this.arpGoodputLabel.AutoSize = true;
+            this.arpGoodputLabel.Location = new System.Drawing.Point(28, 282);
+            this.arpGoodputLabel.Name = "arpGoodputLabel";
+            this.arpGoodputLabel.Size = new System.Drawing.Size(109, 20);
+            this.arpGoodputLabel.TabIndex = 19;
+            this.arpGoodputLabel.Text = "ARP Goodput";
             // 
-            // label8
+            // udpCountLabel
             // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(342, 253);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(90, 20);
-            this.label8.TabIndex = 20;
-            this.label8.Text = "UDP Count";
+            this.udpCountLabel.AutoSize = true;
+            this.udpCountLabel.Location = new System.Drawing.Point(357, 253);
+            this.udpCountLabel.Name = "udpCountLabel";
+            this.udpCountLabel.Size = new System.Drawing.Size(90, 20);
+            this.udpCountLabel.TabIndex = 20;
+            this.udpCountLabel.Text = "UDP Count";
             // 
             // udpGoodputTxtBox
             // 
-            this.udpGoodputTxtBox.Location = new System.Drawing.Point(478, 293);
+            this.udpGoodputTxtBox.Enabled = false;
+            this.udpGoodputTxtBox.Location = new System.Drawing.Point(478, 282);
             this.udpGoodputTxtBox.Name = "udpGoodputTxtBox";
             this.udpGoodputTxtBox.Size = new System.Drawing.Size(100, 26);
             this.udpGoodputTxtBox.TabIndex = 21;
             // 
             // otherPacketCountTxtBox
             // 
-            this.otherPacketCountTxtBox.Location = new System.Drawing.Point(444, 356);
+            this.otherPacketCountTxtBox.Enabled = false;
+            this.otherPacketCountTxtBox.Location = new System.Drawing.Point(444, 389);
             this.otherPacketCountTxtBox.Name = "otherPacketCountTxtBox";
             this.otherPacketCountTxtBox.Size = new System.Drawing.Size(134, 26);
             this.otherPacketCountTxtBox.TabIndex = 22;
             // 
             // totalGoodputTxtBox
             // 
-            this.totalGoodputTxtBox.Location = new System.Drawing.Point(444, 463);
+            this.totalGoodputTxtBox.Enabled = false;
+            this.totalGoodputTxtBox.Location = new System.Drawing.Point(444, 491);
             this.totalGoodputTxtBox.Name = "totalGoodputTxtBox";
             this.totalGoodputTxtBox.Size = new System.Drawing.Size(134, 26);
             this.totalGoodputTxtBox.TabIndex = 23;
             // 
-            // label2
+            // udpGoodputLabel
             // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(322, 296);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(110, 20);
-            this.label2.TabIndex = 24;
-            this.label2.Text = "UDP Goodput";
+            this.udpGoodputLabel.AutoSize = true;
+            this.udpGoodputLabel.Location = new System.Drawing.Point(337, 285);
+            this.udpGoodputLabel.Name = "udpGoodputLabel";
+            this.udpGoodputLabel.Size = new System.Drawing.Size(110, 20);
+            this.udpGoodputLabel.TabIndex = 24;
+            this.udpGoodputLabel.Text = "UDP Goodput";
             // 
-            // label9
+            // totalGoodputLabel
             // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(48, 466);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(263, 20);
-            this.label9.TabIndex = 25;
-            this.label9.Text = "Total Goodput of Observed Network";
+            this.totalGoodputLabel.AutoSize = true;
+            this.totalGoodputLabel.Location = new System.Drawing.Point(48, 494);
+            this.totalGoodputLabel.Name = "totalGoodputLabel";
+            this.totalGoodputLabel.Size = new System.Drawing.Size(263, 20);
+            this.totalGoodputLabel.TabIndex = 25;
+            this.totalGoodputLabel.Text = "Total Goodput of Observed Network";
             // 
-            // label10
+            // otherCountLabel
             // 
-            this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(48, 359);
-            this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(197, 20);
-            this.label10.TabIndex = 26;
-            this.label10.Text = "Other Traffic Packet Count";
+            this.otherCountLabel.AutoSize = true;
+            this.otherCountLabel.Location = new System.Drawing.Point(53, 392);
+            this.otherCountLabel.Name = "otherCountLabel";
+            this.otherCountLabel.Size = new System.Drawing.Size(197, 20);
+            this.otherCountLabel.TabIndex = 26;
+            this.otherCountLabel.Text = "Other Traffic Packet Count";
             // 
             // otherGoodputTxtBox
             // 
-            this.otherGoodputTxtBox.Location = new System.Drawing.Point(444, 392);
+            this.otherGoodputTxtBox.Enabled = false;
+            this.otherGoodputTxtBox.Location = new System.Drawing.Point(444, 425);
             this.otherGoodputTxtBox.Name = "otherGoodputTxtBox";
             this.otherGoodputTxtBox.Size = new System.Drawing.Size(134, 26);
             this.otherGoodputTxtBox.TabIndex = 27;
             // 
-            // label11
+            // otherGoodputLabel
             // 
-            this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(48, 395);
-            this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(164, 20);
-            this.label11.TabIndex = 28;
-            this.label11.Text = "Other Traffic Goodput";
+            this.otherGoodputLabel.AutoSize = true;
+            this.otherGoodputLabel.Location = new System.Drawing.Point(53, 428);
+            this.otherGoodputLabel.Name = "otherGoodputLabel";
+            this.otherGoodputLabel.Size = new System.Drawing.Size(164, 20);
+            this.otherGoodputLabel.TabIndex = 28;
+            this.otherGoodputLabel.Text = "Other Traffic Goodput";
             // 
-            // label12
+            // arpRespTitle
             // 
-            this.label12.AutoSize = true;
-            this.label12.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F);
-            this.label12.Location = new System.Drawing.Point(47, 55);
-            this.label12.Name = "label12";
-            this.label12.Size = new System.Drawing.Size(170, 26);
-            this.label12.TabIndex = 29;
-            this.label12.Text = "ARP Responder";
-            this.label12.UseMnemonic = false;
-            this.label12.Click += new System.EventHandler(this.label12_Click);
+            this.arpRespTitle.AutoSize = true;
+            this.arpRespTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F);
+            this.arpRespTitle.Location = new System.Drawing.Point(47, 55);
+            this.arpRespTitle.Name = "arpRespTitle";
+            this.arpRespTitle.Size = new System.Drawing.Size(170, 26);
+            this.arpRespTitle.TabIndex = 29;
+            this.arpRespTitle.Text = "ARP Responder";
+            this.arpRespTitle.UseMnemonic = false;
+            this.arpRespTitle.Click += new System.EventHandler(this.label12_Click);
             // 
             // callForHelpBtn
             // 
@@ -557,25 +561,109 @@ namespace MyPacketCapturer
             this.callForHelpBtn.UseVisualStyleBackColor = true;
             this.callForHelpBtn.Click += new System.EventHandler(this.callForHelpBtn_Click);
             // 
+            // icmpThroughputLabel
+            // 
+            this.icmpThroughputLabel.AutoSize = true;
+            this.icmpThroughputLabel.Location = new System.Drawing.Point(9, 179);
+            this.icmpThroughputLabel.Name = "icmpThroughputLabel";
+            this.icmpThroughputLabel.Size = new System.Drawing.Size(134, 20);
+            this.icmpThroughputLabel.TabIndex = 31;
+            this.icmpThroughputLabel.Text = "ICMP Throughput";
+            // 
+            // icmpThroughputTxtBox
+            // 
+            this.icmpThroughputTxtBox.Enabled = false;
+            this.icmpThroughputTxtBox.Location = new System.Drawing.Point(165, 176);
+            this.icmpThroughputTxtBox.Name = "icmpThroughputTxtBox";
+            this.icmpThroughputTxtBox.Size = new System.Drawing.Size(100, 26);
+            this.icmpThroughputTxtBox.TabIndex = 32;
+            // 
+            // tcpThroughputTxtBox
+            // 
+            this.tcpThroughputTxtBox.Enabled = false;
+            this.tcpThroughputTxtBox.Location = new System.Drawing.Point(478, 176);
+            this.tcpThroughputTxtBox.Name = "tcpThroughputTxtBox";
+            this.tcpThroughputTxtBox.Size = new System.Drawing.Size(100, 26);
+            this.tcpThroughputTxtBox.TabIndex = 33;
+            // 
+            // tcpThroughputLabel
+            // 
+            this.tcpThroughputLabel.AutoSize = true;
+            this.tcpThroughputLabel.Location = new System.Drawing.Point(322, 179);
+            this.tcpThroughputLabel.Name = "tcpThroughputLabel";
+            this.tcpThroughputLabel.Size = new System.Drawing.Size(125, 20);
+            this.tcpThroughputLabel.TabIndex = 34;
+            this.tcpThroughputLabel.Text = "TCP Throughput";
+            // 
+            // arpThroughputTxtBox
+            // 
+            this.arpThroughputTxtBox.Enabled = false;
+            this.arpThroughputTxtBox.Location = new System.Drawing.Point(165, 312);
+            this.arpThroughputTxtBox.Name = "arpThroughputTxtBox";
+            this.arpThroughputTxtBox.Size = new System.Drawing.Size(100, 26);
+            this.arpThroughputTxtBox.TabIndex = 35;
+            // 
+            // udpThroughputTxtBox
+            // 
+            this.udpThroughputTxtBox.Enabled = false;
+            this.udpThroughputTxtBox.Location = new System.Drawing.Point(478, 315);
+            this.udpThroughputTxtBox.Name = "udpThroughputTxtBox";
+            this.udpThroughputTxtBox.Size = new System.Drawing.Size(100, 26);
+            this.udpThroughputTxtBox.TabIndex = 36;
+            // 
+            // arpThroughputLabel
+            // 
+            this.arpThroughputLabel.AutoSize = true;
+            this.arpThroughputLabel.Location = new System.Drawing.Point(9, 315);
+            this.arpThroughputLabel.Name = "arpThroughputLabel";
+            this.arpThroughputLabel.Size = new System.Drawing.Size(128, 20);
+            this.arpThroughputLabel.TabIndex = 37;
+            this.arpThroughputLabel.Text = "ARP Throughput";
+            // 
+            // udpThroughputLabel
+            // 
+            this.udpThroughputLabel.AutoSize = true;
+            this.udpThroughputLabel.Location = new System.Drawing.Point(318, 318);
+            this.udpThroughputLabel.Name = "udpThroughputLabel";
+            this.udpThroughputLabel.Size = new System.Drawing.Size(129, 20);
+            this.udpThroughputLabel.TabIndex = 38;
+            this.udpThroughputLabel.Text = "UDP Throughput";
+            // 
+            // gratArpCountTxtBox
+            // 
+            this.gratArpCountTxtBox.Location = new System.Drawing.Point(478, 55);
+            this.gratArpCountTxtBox.Name = "gratArpCountTxtBox";
+            this.gratArpCountTxtBox.Size = new System.Drawing.Size(100, 26);
+            this.gratArpCountTxtBox.TabIndex = 39;
+            // 
             // packetCaptureForm
             // 
             this.ClientSize = new System.Drawing.Size(624, 593);
+            this.Controls.Add(this.gratArpCountTxtBox);
+            this.Controls.Add(this.udpThroughputLabel);
+            this.Controls.Add(this.arpThroughputLabel);
+            this.Controls.Add(this.udpThroughputTxtBox);
+            this.Controls.Add(this.arpThroughputTxtBox);
+            this.Controls.Add(this.tcpThroughputLabel);
+            this.Controls.Add(this.tcpThroughputTxtBox);
+            this.Controls.Add(this.icmpThroughputTxtBox);
+            this.Controls.Add(this.icmpThroughputLabel);
             this.Controls.Add(this.callForHelpBtn);
-            this.Controls.Add(this.label12);
-            this.Controls.Add(this.label11);
+            this.Controls.Add(this.arpRespTitle);
+            this.Controls.Add(this.otherGoodputLabel);
             this.Controls.Add(this.otherGoodputTxtBox);
-            this.Controls.Add(this.label10);
-            this.Controls.Add(this.label9);
-            this.Controls.Add(this.label2);
+            this.Controls.Add(this.otherCountLabel);
+            this.Controls.Add(this.totalGoodputLabel);
+            this.Controls.Add(this.udpGoodputLabel);
             this.Controls.Add(this.totalGoodputTxtBox);
             this.Controls.Add(this.otherPacketCountTxtBox);
             this.Controls.Add(this.udpGoodputTxtBox);
-            this.Controls.Add(this.label8);
-            this.Controls.Add(this.label7);
-            this.Controls.Add(this.label6);
-            this.Controls.Add(this.label5);
-            this.Controls.Add(this.label4);
-            this.Controls.Add(this.label3);
+            this.Controls.Add(this.udpCountLabel);
+            this.Controls.Add(this.arpGoodputLabel);
+            this.Controls.Add(this.arpCountLabel);
+            this.Controls.Add(this.tcpGoodputLabel);
+            this.Controls.Add(this.tcpCountLabel);
+            this.Controls.Add(this.icmpGoodputLabel);
             this.Controls.Add(this.udpCountTxtBox);
             this.Controls.Add(this.arpGoodputTxtBox);
             this.Controls.Add(this.arpCountTxtBox);
@@ -584,7 +672,7 @@ namespace MyPacketCapturer
             this.Controls.Add(this.icmpGoodputTxtBox);
             this.Controls.Add(this.icmpPktCntLabel);
             this.Controls.Add(this.icmpCntTxtBox);
-            this.Controls.Add(this.label1);
+            this.Controls.Add(this.totalPacketsLabel);
             this.Controls.Add(this.txtNumPackets);
             this.Controls.Add(this.btnStartStop);
             this.Controls.Add(this.menuStrip1);
@@ -606,22 +694,27 @@ namespace MyPacketCapturer
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            totalGoodput += icmpThroughput + arpThroughput + tcpThroughput + otherThroughput;
-            totalGoodput -= icmpOverhead + arpOverhead + tcpOverhead + otherOverhead;
-
-            strPackets = "";
+            
             txtNumPackets.Text = Convert.ToString(numPackets);
             icmpCntTxtBox.Text = Convert.ToString(icmpPacketsReceived);
             icmpGoodputTxtBox.Text = Convert.ToString((icmpThroughput - icmpOverhead));
+            icmpThroughputTxtBox.Text = Convert.ToString(icmpThroughput);
             tcpCountTxtBox.Text = Convert.ToString(tcpPacketsReceived);
             tcpGoodputTxtBox.Text = Convert.ToString(tcpThroughput - tcpOverhead);
+            tcpThroughputTxtBox.Text = Convert.ToString(tcpThroughput);
             arpCountTxtBox.Text = Convert.ToString(arpPacketsReceived);
             arpGoodputTxtBox.Text = Convert.ToString(arpThroughput - arpOverhead);
+            arpThroughputTxtBox.Text = Convert.ToString(arpThroughput);
             udpCountTxtBox.Text = Convert.ToString(udpPacketsReceived);
             udpGoodputTxtBox.Text = Convert.ToString(udpThroughput - udpOverhead);
+            udpThroughputTxtBox.Text = Convert.ToString(udpThroughput);
             otherPacketCountTxtBox.Text = Convert.ToString(otherPackets);
             otherGoodputTxtBox.Text = Convert.ToString(otherThroughput - otherOverhead);
             totalGoodputTxtBox.Text = Convert.ToString(totalGoodput);
+            gratArpCountTxtBox.Text = Convert.ToString(gratuitousArps);
+
+            waveOutSetVolume(IntPtr.Zero, (uint)gratuitousArps);
+
         }
 
         private void cmbDevices_SelectedIndexChanged(object sender, EventArgs e)

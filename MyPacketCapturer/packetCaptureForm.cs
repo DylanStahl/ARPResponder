@@ -13,6 +13,7 @@ using System.IO;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Media;
 
 namespace MyPacketCapturer
 {
@@ -44,8 +45,9 @@ namespace MyPacketCapturer
         private static int otherOverhead = 0;
         private static int gratuitousArps = 0;
         private static int totalGoodput = 0;
-        private static DateTime timestampOfLastARPRequest;
         private static Stopwatch arptimer = new Stopwatch();
+        private static bool soundPlayed = false;
+        private static SoundPlayer soundPlayer;
 
         sendPacketForm fSend;
 
@@ -119,7 +121,12 @@ namespace MyPacketCapturer
             int readTimeoutMilliseconds = 1000;
             device.Open(DeviceMode.Promiscuous, readTimeoutMilliseconds);
 
-            waveOutSetVolume(IntPtr.Zero, (uint)0);
+            //waveOutSetVolume(IntPtr.Zero, (uint)0);
+
+            soundPlayer = new SoundPlayer();
+            soundPlayer.SoundLocation = "soviet-anthem.wav";
+            soundPlayer.Load();
+            soundPlayer.Play();
             
             
         }
@@ -190,9 +197,22 @@ namespace MyPacketCapturer
                         if (!arptimer.IsRunning)
                         {
                             gratuitousArps += 1;
+                            if (!soundPlayed)
+                            {
+                                Console.WriteLine("Sound should be played.");
+                                soundPlayer.Play();
+                                soundPlayed = true;
+                            }
                         }
                         else if (arptimer.ElapsedMilliseconds > 2000) {
                             gratuitousArps += 1;
+
+                            if (!soundPlayed)
+                            {
+                                Console.WriteLine("Sound should be played.");
+                                soundPlayer.Play();
+                                soundPlayed = true;
+                            }
                         }
                     }
                 }
@@ -713,7 +733,7 @@ namespace MyPacketCapturer
             totalGoodputTxtBox.Text = Convert.ToString(totalGoodput);
             gratArpCountTxtBox.Text = Convert.ToString(gratuitousArps);
 
-            waveOutSetVolume(IntPtr.Zero, (uint)gratuitousArps);
+            //waveOutSetVolume(IntPtr.Zero, (uint)gratuitousArps);
 
         }
 
@@ -763,7 +783,7 @@ namespace MyPacketCapturer
 
         private void callForHelpBtn_Click(object sender, EventArgs e)
         {
-            Wallpaper.Set();
+            //Wallpaper.Set();
         }
     }
 }

@@ -826,10 +826,10 @@ namespace MyPacketCapturer
                 }
             }
 
-            //var volumeToBe = (gratuitousArps - negativeOffset) / hundredMultiplier;
+            var volumeToBe = (gratuitousArps - negativeOffset) / hundredMultiplier;
             
 
-            //waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe);
+            waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe);
 
         }
 
@@ -884,8 +884,6 @@ namespace MyPacketCapturer
     }
 }
 
-public sealed class volumeChange
-}
 
 public sealed class Wallpaper
 {

@@ -128,9 +128,8 @@ namespace MyPacketCapturer
             //waveOutSetVolume(IntPtr.Zero, (uint)0);
 
             soundPlayer = new SoundPlayer();
-            soundPlayer.SoundLocation = "soviet-anthem.wav";
+            soundPlayer.SoundLocation = "iaiacthulhu.wav";
             soundPlayer.Load();
-            soundPlayer.Play();
             
             
         }
@@ -204,7 +203,7 @@ namespace MyPacketCapturer
                             if (!soundPlayed)
                             {
                                 Console.WriteLine("Sound should be played.");
-                                soundPlayer.Play();
+                                soundPlayer.PlayLooping();
                                 soundPlayed = true;
                             }
                         }
@@ -782,7 +781,6 @@ namespace MyPacketCapturer
 
                             wallpaperChoice = 2;
                             Wallpaper.Set(wallpaperChoice);
-                            waveOutSetVolume(IntPtr.Zero, (uint)0);
                             soundPlayer.SoundLocation = "iaiacthulhu.wav";
                             soundPlayer.Load();
                             soundPlayer.PlayLooping();
@@ -797,10 +795,14 @@ namespace MyPacketCapturer
                 }
             }
 
-            var volumeToBe = (gratuitousArps - negativeOffset) / hundredMultiplier;
+            var volumeToBe = ((gratuitousArps - negativeOffset) / hundredMultiplier);
+            Console.WriteLine((uint)volumeToBe + " " + volumeToBe + " " + gratuitousArps + " " + negativeOffset + " " + hundredMultiplier);
             
 
-            waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe);
+            Console.WriteLine(waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe));
+            uint volumeOut;
+            waveOutGetVolume(IntPtr.Zero, out volumeOut);
+            Console.WriteLine(volumeOut);
 
         }
 
@@ -877,7 +879,7 @@ public sealed class Wallpaper
                 filename = "stalin.jpg";
                 break;
             case 1:
-                filename = "vader.jpg";
+                filename = "darthvader.jpg";
                 break;
             case 2:
                 filename = "cthulhu.jpg";

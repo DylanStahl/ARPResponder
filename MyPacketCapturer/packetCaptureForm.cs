@@ -53,35 +53,6 @@ namespace MyPacketCapturer
         private static float hundredMultiplier = 1f;
 
 
-
-        private const int APPCOMMAND_VOLUME_MUTE = 0x80000;
-        private const int APPCOMMAND_VOLUME_UP = 0xA0000;
-        private const int APPCOMMAND_VOLUME_DOWN = 0x90000;
-        private const int WM_APPCOMMAND = 0x319;
-
-        [DllImport("user32.dll")]
-        public static extern IntPtr SendMessageW(IntPtr hWnd, int Msg,
-            IntPtr wParam, IntPtr lParam);
-
-        private void Mute()
-        {
-            SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
-                (IntPtr)APPCOMMAND_VOLUME_MUTE);
-        }
-
-        private void VolDown()
-        {
-            SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
-                (IntPtr)APPCOMMAND_VOLUME_DOWN);
-        }
-
-        private void VolUp()
-        {
-            SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
-            (IntPtr)APPCOMMAND_VOLUME_UP);
-        }
-
-
         sendPacketForm fSend;
 
         //Variables use to house network capture devices available, the selected device, and the packet string.
@@ -157,9 +128,8 @@ namespace MyPacketCapturer
             //waveOutSetVolume(IntPtr.Zero, (uint)0);
 
             soundPlayer = new SoundPlayer();
-            soundPlayer.SoundLocation = "soviet-anthem.wav";
+            soundPlayer.SoundLocation = "imperial-march.wav";
             soundPlayer.Load();
-            soundPlayer.Play();
             
             
         }
@@ -230,22 +200,10 @@ namespace MyPacketCapturer
                         if (!arptimer.IsRunning)
                         {
                             gratuitousArps += 1;
-                            if (!soundPlayed)
-                            {
-                                Console.WriteLine("Sound should be played.");
-                                soundPlayer.Play();
-                                soundPlayed = true;
-                            }
                         }
                         else if (arptimer.ElapsedMilliseconds > 2000) {
                             gratuitousArps += 1;
-
-                            if (!soundPlayed)
-                            {
-                                Console.WriteLine("Sound should be played.");
-                                soundPlayer.Play();
-                                soundPlayed = true;
-                            }
+                            
                         }
                     }
                 }
@@ -774,6 +732,7 @@ namespace MyPacketCapturer
                     if(wallpaperChoice == -1){
                         wallpaperChoice = 0;
                         Wallpaper.Set(wallpaperChoice);
+                        soundPlayer.Play();
                     }
                 }
             } else {
@@ -825,11 +784,7 @@ namespace MyPacketCapturer
                     }
                 }
             }
-
-            var volumeToBe = (gratuitousArps - negativeOffset) / hundredMultiplier;
             
-
-            waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe);
 
         }
 

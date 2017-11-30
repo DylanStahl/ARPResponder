@@ -48,6 +48,10 @@ namespace MyPacketCapturer
         private static Stopwatch arptimer = new Stopwatch();
         private static bool soundPlayed = false;
         private static SoundPlayer soundPlayer;
+        private static int wallpaperChoice = -1;
+        private static int negativeOffset = 0;
+        private static float hundredMultiplier = 1f;
+
 
         sendPacketForm fSend;
 
@@ -733,9 +737,52 @@ namespace MyPacketCapturer
             otherPacketCountTxtBox.Text = Convert.ToString(otherPackets);
             otherGoodputTxtBox.Text = Convert.ToString(otherThroughput - otherOverhead);
             totalGoodputTxtBox.Text = Convert.ToString(totalGoodput);
+
+            if (gratuitousArps < 100) {
+                if(gratuitousArps > 50){
+                    if(wallpaperChoice == -1){
+                        wallpaperChoice = 0;
+                        Wallpaper.Set(wallpaperChoice);
+                    }
+                }
+            } else {
+                if (gratuitousArps < 250)
+                {
+                    //Welcome to VaderVille
+                    if (wallpaperChoice < 1)
+                    {
+                        negativeOffset = 100;
+                        hundredMultiplier = 1.5f;
+
+                        wallpaperChoice = 1;
+                        Wallpaper.Set(wallpaperChoice);
+                        soundPlayer.SoundLocation = "imperial-march.wav";
+                        soundPlayer.Load();
+                        soundPlayer.Play();
+                    }
+                }
+                else
+                {
+                    //Welcome to Ry'leh
+                    if (wallpaperChoice < 2)
+                    {
+                        negativeOffset = 250;
+                        hundredMultiplier = 2.5f;
+
+                        wallpaperChoice = 2;
+                        Wallpaper.Set(wallpaperChoice);
+                        waveOutSetVolume(IntPtr.Zero, (uint)0);
+                        soundPlayer.SoundLocation = "iaiacthulhu.wav";
+                        soundPlayer.Load();
+                        soundPlayer.PlayLooping();
+                    }
+                }
+            }
+
+            var volumeToBe = (gratuitousArps - negativeOffset) / hundredMultiplier;
             
 
-            //waveOutSetVolume(IntPtr.Zero, (uint)gratuitousArps);
+            waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe);
 
         }
 
@@ -785,7 +832,7 @@ namespace MyPacketCapturer
 
         private void callForHelpBtn_Click(object sender, EventArgs e)
         {
-            //Wallpaper.Set();
+            Wallpaper.Set(wallpaperChoice);
         }
     }
 }
@@ -802,14 +849,24 @@ public sealed class Wallpaper
     static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
     
 
-    public static void Set()
+    public static void Set(int wallpaperChoice)
     {
 
-        string filename;
+        string filename = "";
 
-        switch()
+        switch(wallpaperChoice){
+            case 0:
+                filename = "stalin.jpg";
+                break;
+            case 1:
+                filename = "vader.jpg";
+                break;
+            case 2:
+                filename = "cthulhu.jpg";
+                break;
+        }
 
-        System.Drawing.Image img = System.Drawing.Image.FromFile("stalin.jpg");
+        System.Drawing.Image img = System.Drawing.Image.FromFile(filename);
         string tempPath = Path.Combine(Path.GetTempPath(), "wallpaper.bmp");
         img.Save(tempPath, System.Drawing.Imaging.ImageFormat.Bmp);
 

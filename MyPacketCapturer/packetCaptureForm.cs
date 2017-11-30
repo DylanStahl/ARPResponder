@@ -53,6 +53,35 @@ namespace MyPacketCapturer
         private static float hundredMultiplier = 1f;
 
 
+
+        private const int APPCOMMAND_VOLUME_MUTE = 0x80000;
+        private const int APPCOMMAND_VOLUME_UP = 0xA0000;
+        private const int APPCOMMAND_VOLUME_DOWN = 0x90000;
+        private const int WM_APPCOMMAND = 0x319;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SendMessageW(IntPtr hWnd, int Msg,
+            IntPtr wParam, IntPtr lParam);
+
+        private void Mute()
+        {
+            SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
+                (IntPtr)APPCOMMAND_VOLUME_MUTE);
+        }
+
+        private void VolDown()
+        {
+            SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
+                (IntPtr)APPCOMMAND_VOLUME_DOWN);
+        }
+
+        private void VolUp()
+        {
+            SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
+            (IntPtr)APPCOMMAND_VOLUME_UP);
+        }
+
+
         sendPacketForm fSend;
 
         //Variables use to house network capture devices available, the selected device, and the packet string.
@@ -128,8 +157,9 @@ namespace MyPacketCapturer
             //waveOutSetVolume(IntPtr.Zero, (uint)0);
 
             soundPlayer = new SoundPlayer();
-            soundPlayer.SoundLocation = "iaiacthulhu.wav";
+            soundPlayer.SoundLocation = "soviet-anthem.wav";
             soundPlayer.Load();
+            soundPlayer.Play();
             
             
         }
@@ -203,7 +233,7 @@ namespace MyPacketCapturer
                             if (!soundPlayed)
                             {
                                 Console.WriteLine("Sound should be played.");
-                                soundPlayer.PlayLooping();
+                                soundPlayer.Play();
                                 soundPlayed = true;
                             }
                         }
@@ -781,6 +811,7 @@ namespace MyPacketCapturer
 
                             wallpaperChoice = 2;
                             Wallpaper.Set(wallpaperChoice);
+                            waveOutSetVolume(IntPtr.Zero, (uint)0);
                             soundPlayer.SoundLocation = "iaiacthulhu.wav";
                             soundPlayer.Load();
                             soundPlayer.PlayLooping();
@@ -795,14 +826,10 @@ namespace MyPacketCapturer
                 }
             }
 
-            var volumeToBe = ((gratuitousArps - negativeOffset) / hundredMultiplier);
-            Console.WriteLine((uint)volumeToBe + " " + volumeToBe + " " + gratuitousArps + " " + negativeOffset + " " + hundredMultiplier);
+            //var volumeToBe = (gratuitousArps - negativeOffset) / hundredMultiplier;
             
 
-            Console.WriteLine(waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe));
-            uint volumeOut;
-            waveOutGetVolume(IntPtr.Zero, out volumeOut);
-            Console.WriteLine(volumeOut);
+            //waveOutSetVolume(IntPtr.Zero, (uint)volumeToBe);
 
         }
 
@@ -858,33 +885,6 @@ namespace MyPacketCapturer
 }
 
 public sealed class volumeChange
-{
-    private const int APPCOMMAND_VOLUME_MUTE = 0x80000;
-    private const int APPCOMMAND_VOLUME_UP = 0xA0000;
-    private const int APPCOMMAND_VOLUME_DOWN = 0x90000;
-    private const int WM_APPCOMMAND = 0x319;
-
-    [DllImport("user32.dll")]
-    public static extern IntPtr SendMessageW(IntPtr hWnd, int Msg,
-        IntPtr wParam, IntPtr lParam);
-
-    private void Mute()
-    {
-        SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
-            (IntPtr)APPCOMMAND_VOLUME_MUTE);
-    }
-
-    private void VolDown()
-    {
-        SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
-            (IntPtr)APPCOMMAND_VOLUME_DOWN);
-    }
-
-    private void VolUp()
-    {
-        SendMessageW(this.Handle, WM_APPCOMMAND, this.Handle,
-        (IntPtr)APPCOMMAND_VOLUME_UP);
-    }
 }
 
 public sealed class Wallpaper
@@ -909,7 +909,7 @@ public sealed class Wallpaper
                 filename = "stalin.jpg";
                 break;
             case 1:
-                filename = "darthvader.jpg";
+                filename = "vader.jpg";
                 break;
             case 2:
                 filename = "cthulhu.jpg";

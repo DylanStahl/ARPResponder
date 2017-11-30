@@ -96,7 +96,7 @@ namespace MyPacketCapturer
         private TextBox arpThroughputTxtBox;
         private TextBox udpThroughputTxtBox;
         private Label arpThroughputLabel;
-        private TextBox gratArpCountTxtBox;
+        private ProgressBar gratArp;
         private Label udpThroughputLabel;
 
         public packetCaptureForm()
@@ -286,7 +286,7 @@ namespace MyPacketCapturer
             this.udpThroughputTxtBox = new System.Windows.Forms.TextBox();
             this.arpThroughputLabel = new System.Windows.Forms.Label();
             this.udpThroughputLabel = new System.Windows.Forms.Label();
-            this.gratArpCountTxtBox = new System.Windows.Forms.TextBox();
+            this.gratArp = new System.Windows.Forms.ProgressBar();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -649,17 +649,19 @@ namespace MyPacketCapturer
             this.udpThroughputLabel.TabIndex = 38;
             this.udpThroughputLabel.Text = "UDP Throughput";
             // 
-            // gratArpCountTxtBox
+            // gratArp
             // 
-            this.gratArpCountTxtBox.Location = new System.Drawing.Point(478, 55);
-            this.gratArpCountTxtBox.Name = "gratArpCountTxtBox";
-            this.gratArpCountTxtBox.Size = new System.Drawing.Size(100, 26);
-            this.gratArpCountTxtBox.TabIndex = 39;
+            this.gratArp.BackColor = System.Drawing.SystemColors.ButtonHighlight;
+            this.gratArp.ForeColor = System.Drawing.SystemColors.Window;
+            this.gratArp.Location = new System.Drawing.Point(478, 55);
+            this.gratArp.Name = "gratArp";
+            this.gratArp.Size = new System.Drawing.Size(100, 25);
+            this.gratArp.TabIndex = 39;
             // 
             // packetCaptureForm
             // 
             this.ClientSize = new System.Drawing.Size(624, 593);
-            this.Controls.Add(this.gratArpCountTxtBox);
+            this.Controls.Add(this.gratArp);
             this.Controls.Add(this.udpThroughputLabel);
             this.Controls.Add(this.arpThroughputLabel);
             this.Controls.Add(this.udpThroughputTxtBox);
@@ -731,7 +733,7 @@ namespace MyPacketCapturer
             otherPacketCountTxtBox.Text = Convert.ToString(otherPackets);
             otherGoodputTxtBox.Text = Convert.ToString(otherThroughput - otherOverhead);
             totalGoodputTxtBox.Text = Convert.ToString(totalGoodput);
-            gratArpCountTxtBox.Text = Convert.ToString(gratuitousArps);
+            
 
             //waveOutSetVolume(IntPtr.Zero, (uint)gratuitousArps);
 
@@ -802,6 +804,10 @@ public sealed class Wallpaper
 
     public static void Set()
     {
+
+        string filename;
+
+        switch()
 
         System.Drawing.Image img = System.Drawing.Image.FromFile("stalin.jpg");
         string tempPath = Path.Combine(Path.GetTempPath(), "wallpaper.bmp");

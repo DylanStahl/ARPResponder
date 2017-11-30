@@ -655,7 +655,7 @@ namespace MyPacketCapturer
             // 
             // gratArp
             // 
-            this.gratArp.BackColor = System.Drawing.SystemColors.ButtonHighlight;
+            this.gratArp.BackColor = System.Drawing.Color.Black;
             this.gratArp.ForeColor = System.Drawing.SystemColors.Window;
             this.gratArp.Location = new System.Drawing.Point(478, 55);
             this.gratArp.Name = "gratArp";
@@ -738,6 +738,8 @@ namespace MyPacketCapturer
             otherGoodputTxtBox.Text = Convert.ToString(otherThroughput - otherOverhead);
             totalGoodputTxtBox.Text = Convert.ToString(totalGoodput);
 
+            gratArp.Value = gratuitousArps;
+
             if (gratuitousArps < 100) {
                 if(gratuitousArps > 50){
                     if(wallpaperChoice == -1){
@@ -748,33 +750,49 @@ namespace MyPacketCapturer
             } else {
                 if (gratuitousArps < 250)
                 {
-                    //Welcome to VaderVille
-                    if (wallpaperChoice < 1)
+                    if (gratuitousArps > 150)
                     {
-                        negativeOffset = 100;
-                        hundredMultiplier = 1.5f;
+                        //Welcome to VaderVille
+                        if (wallpaperChoice < 1)
+                        {
 
-                        wallpaperChoice = 1;
-                        Wallpaper.Set(wallpaperChoice);
-                        soundPlayer.SoundLocation = "imperial-march.wav";
-                        soundPlayer.Load();
-                        soundPlayer.Play();
+                            negativeOffset = 100;
+                            hundredMultiplier = 1.5f;
+
+                            wallpaperChoice = 1;
+                            Wallpaper.Set(wallpaperChoice);
+                            soundPlayer.SoundLocation = "imperial-march.wav";
+                            soundPlayer.Load();
+                            soundPlayer.Play();
+                        }
+                    } else {
+
+                        gratArp.Maximum = 250;
+                        gratArp.Minimum = 100;
+                        gratArp.ForeColor = Color.Black;
                     }
                 }
                 else
                 {
-                    //Welcome to Ry'leh
-                    if (wallpaperChoice < 2)
+                    if (gratuitousArps < 325)
                     {
+                        //Welcome to Ry'leh
+                        if (wallpaperChoice < 2)
+                        {
+
+                            wallpaperChoice = 2;
+                            Wallpaper.Set(wallpaperChoice);
+                            waveOutSetVolume(IntPtr.Zero, (uint)0);
+                            soundPlayer.SoundLocation = "iaiacthulhu.wav";
+                            soundPlayer.Load();
+                            soundPlayer.PlayLooping();
+                        }
+                    } else {
+
+                            gratArp.Maximum = 500;
+                        gratArp.Minimum = 250;
                         negativeOffset = 250;
                         hundredMultiplier = 2.5f;
-
-                        wallpaperChoice = 2;
-                        Wallpaper.Set(wallpaperChoice);
-                        waveOutSetVolume(IntPtr.Zero, (uint)0);
-                        soundPlayer.SoundLocation = "iaiacthulhu.wav";
-                        soundPlayer.Load();
-                        soundPlayer.PlayLooping();
                     }
                 }
             }
